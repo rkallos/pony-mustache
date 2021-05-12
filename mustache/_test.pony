@@ -128,9 +128,8 @@ actor Main is TestList
             continue
           end
 
-        let test_name = f.trim(0, f.size() - 5) + "/" + name
-
-        pt(_JsonTest(consume test_name, template, expected, data))
+        let short_f = f.trim(0, f.size() - 5)
+        pt(_JsonTest(consume short_f, name, template, expected, data))
       end
     end
 
@@ -168,20 +167,23 @@ class iso _MissingBinding is UnitTest
     h.assert_eq[String]("Hello ", m.render())
 
 class iso _JsonTest is UnitTest
+  let _file: String
   let _name: String
   let _template: String
   let _expected: String
   let _data: JsonType val
 
-  new iso create(name': String, template: String, expected: String,
+  new iso create(file: String, name': String, template: String, expected: String,
     data: JsonType val
   ) =>
-    _name = name'
+    _file = file
+    _name = _file + "/" + name'
     _template = template
     _expected = expected
     _data = data
 
   fun name(): String => _name
+  fun label(): String => _file
 
   fun apply(h: TestHelper) =>
     let m = Mustache(_template)
