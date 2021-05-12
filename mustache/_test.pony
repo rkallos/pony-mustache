@@ -13,6 +13,7 @@ actor Main is TestList
         env.exitcode(-1)
         return
       end
+
     let dir =
       try
         Directory(FilePath(auth, "spec/specs")?)?
@@ -21,6 +22,7 @@ actor Main is TestList
         env.exitcode(-1)
         return
       end
+
     let all_files: Array[String] val =
       try
         dir.entries()?
@@ -31,6 +33,7 @@ actor Main is TestList
       end
 
     let json_files = Array[String](all_files.size())
+
     for f in all_files.values() do
       // Skip optional files
       if f.compare_sub("~", 1, 0) is Equal then continue end
