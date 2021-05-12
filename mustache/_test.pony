@@ -1,8 +1,139 @@
 use "ponytest"
 
+use "files"
+use "json"
+
 actor Main is TestList
-  new create(env: Env) => PonyTest(env, this)
-  new make() => None
+  new create(env: Env) =>
+    let auth =
+      try
+        env.root as AmbientAuth
+      else
+        env.err.print("env.root as AmbientAuth failed")
+        env.exitcode(-1)
+        return
+      end
+    let dir =
+      try
+        Directory(FilePath(auth, "spec/specs")?)?
+      else
+        env.err.print("unable to open ./spec/specs/*.json")
+        env.exitcode(-1)
+        return
+      end
+    let all_files: Array[String] val =
+      try
+        dir.entries()?
+      else
+        env.err.print("unable to list ./spec/specs/*.json")
+        env.exitcode(-1)
+        return
+      end
+
+    let json_files = Array[String](all_files.size())
+    for f in all_files.values() do
+      // Skip optional files
+      if f.compare_sub("~", 1, 0) is Equal then continue end
+      // Keep only JSON files
+      if f.compare_sub(".json", 5, -5, 0, true) is Equal then
+        json_files.push(f)
+      end
+    end
+
+    let pt = PonyTest(env, this)
+
+    for f in json_files.values() do
+      let contents =
+        try
+          let file = OpenFile(dir.path.join(f)?) as File
+          String.from_array(file.read(file.size()))
+        else
+          env.err.print("failed while trying to read " + f)
+          env.exitcode(-1)
+          return
+        end
+
+      let doc' = recover JsonDoc end
+      try
+        doc'.parse(contents)?
+      else
+        (let byte, let err) = doc'.parse_report()
+        env.err.print("file is invalid json: " + f)
+        env.err.print("error at byte " + byte.string() + ": " + err)
+        env.exitcode(-1)
+        return
+      end
+
+      let doc: JsonDoc val = consume doc'
+
+      let obj =
+        try
+          doc.data as JsonObject val
+        else
+          env.err.print("top level JSON term is not an object")
+          env.exitcode(-1)
+          return
+        end
+
+      let test_array =
+        try
+          obj.data("tests")? as JsonArray val
+        else
+          env.err.print(".tests either isn't an array, or is missing")
+          env.exitcode(-1)
+          return
+        end
+
+      for test_obj in test_array.data.values() do
+        let test =
+          try
+            test_obj as JsonObject val
+          else
+            env.err.print(f + ": test is not a JSON object")
+            continue
+          end
+
+        let name =
+          try
+            test.data.get_or_else("name", "missing") as String
+          else
+            env.err.print(f + ": test name is not a string")
+            continue
+          end
+        env.err.print(f + "/" + name)
+        let data =
+          try
+            match test.data("data")?
+            | let j: JsonObject val => j
+            | None => None
+            | let s: String => s
+            else
+              error
+            end
+          else
+            env.err.print(f + ": test is missing a data section or is not an object")
+            continue
+          end
+        let template =
+          try
+            test.data("template")? as String
+          else
+            env.err.print(f + ": test is missing a template section or is not a string")
+            continue
+          end
+        let expected =
+          try
+            test.data("expected")? as String
+          else
+            env.err.print(f + ": test is missing an expected section or is not a string")
+            continue
+          end
+
+        let test_name = f.trim(0, f.size() - 5) + "/" + name
+
+        pt(_JsonTest(consume test_name, template, expected, data))
+      end
+    end
 
   fun tag tests(test: PonyTest) =>
     test(_Empty)
@@ -36,3 +167,25 @@ class iso _MissingBinding is UnitTest
   fun apply(h: TestHelper) =>
     let m = Mustache("Hello {{name}}")
     h.assert_eq[String]("Hello ", m.render())
+
+type _JsonData is (JsonObject val | String | None)
+
+class iso _JsonTest is UnitTest
+  let _name: String
+  let _template: String
+  let _expected: String
+  let _data: _JsonData
+
+  new iso create(name': String, template: String, expected: String,
+    data: _JsonData
+  ) =>
+    _name = name'
+    _template = template
+    _expected = expected
+    _data = data
+
+  fun name(): String => _name
+
+  fun apply(h: TestHelper) =>
+    let m = Mustache(_template)
+    h.assert_eq[String](_expected, m.render())
