@@ -100,20 +100,15 @@ actor Main is TestList
             env.err.print(f + ": test name is not a string")
             continue
           end
-        env.err.print(f + "/" + name)
+
         let data =
           try
-            match test.data("data")?
-            | let j: JsonObject val => j
-            | None => None
-            | let s: String => s
-            else
-              error
-            end
+            test.data("data")?
           else
-            env.err.print(f + ": test is missing a data section or is not an object")
+            env.err.print(f + ": test is missing a data section")
             continue
           end
+
         let template =
           try
             test.data("template")? as String
@@ -121,6 +116,7 @@ actor Main is TestList
             env.err.print(f + ": test is missing a template section or is not a string")
             continue
           end
+
         let expected =
           try
             test.data("expected")? as String
@@ -168,16 +164,14 @@ class iso _MissingBinding is UnitTest
     let m = Mustache("Hello {{name}}")
     h.assert_eq[String]("Hello ", m.render())
 
-type _JsonData is (JsonObject val | String | None)
-
 class iso _JsonTest is UnitTest
   let _name: String
   let _template: String
   let _expected: String
-  let _data: _JsonData
+  let _data: JsonType val
 
   new iso create(name': String, template: String, expected: String,
-    data: _JsonData
+    data: JsonType val
   ) =>
     _name = name'
     _template = template
