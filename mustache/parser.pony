@@ -145,9 +145,9 @@ class _Parser
     // missing partials: <>
     match kind
     | "!" => None
-    |  "" => parse_variable(fetch, false)
-    | "&" => parse_variable(fetch, true)
-    | "{" => parse_variable(fetch, true)
+    |  "" => parse_variable(fetch, true)
+    | "&" => parse_variable(fetch, false)
+    | "{" => parse_variable(fetch, false)
     | "#" => parse_section_open(contents, fetch)
     | "/" => parse_section_close(contents, padding, pre_match_position)?
     | "^" => parse_inverted_section_open(contents, fetch)

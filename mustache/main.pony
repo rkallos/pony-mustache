@@ -1,3 +1,5 @@
+use "json"
+
 actor Main
   new create(env: Env) =>
     let template = """
@@ -25,7 +27,7 @@ actor Main
     {{/blarg}}
     """
 
-    let m = Mustache
+    let m: Mustache = Mustache
     try
       m.template(template)?
       env.out.print(m.print_tokens())
@@ -33,3 +35,24 @@ actor Main
       env.err.print("Unable to parse template")
       env.err.print(m.err)
     end
+
+    let bindings_json = """
+    {
+      "name": "Pony",
+      "value": 50,
+      "in_ca": {
+        "taxed_value": 30
+      },
+      "blarg": 1
+    }
+    """
+
+    let bindings: JsonObject =
+      try
+        JsonDoc.>parse(bindings_json)?.data as JsonObject
+      else
+        env.err.print("cannot parse json")
+        return
+      end
+
+    env.out.print(m.render(bindings))
