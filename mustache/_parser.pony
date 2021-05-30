@@ -122,7 +122,10 @@ class _Parser
       scanner.scan(allowed_in_tags)
     end
 
-  fun ref set_tag_regexes(ot: String, ct: String) ? =>
+  fun ref set_tag_regexes(ot': String, ct': String) ? =>
+    let ot = escape_pcre_metachars(ot')
+    let ct = escape_pcre_metachars(ct')
+
     let new_otag_pat: String = "([ \t]*)?" + ot
     let new_otag_regex = Regex(new_otag_pat)?
 
@@ -205,3 +208,26 @@ class _Parser
       err = "Invalid {{= tag: \"" + contents + "\", unable to set tag regexes"
       error
     end
+
+  fun escape_pcre_metachars(s: String): String =>
+    // most of the time, s will be small, and relatively few
+    // backslashes will need to be added. size() + 8 ought to be enough
+    let out = recover String(s.size() + 8) end
+    for rune in s.runes() do
+      match rune
+      | '\\' => out.push('\\')
+      | '^' => out.push('\\')
+      | '$' => out.push('\\')
+      | '.' => out.push('\\')
+      | '[' => out.push('\\')
+      | '|' => out.push('\\')
+      | '(' => out.push('\\')
+      | ')' => out.push('\\')
+      | '?' => out.push('\\')
+      | '*' => out.push('\\')
+      | '+' => out.push('\\')
+      | '{' => out.push('\\')
+      end
+      out.push_utf32(rune)
+    end
+    consume out

@@ -1,21 +1,14 @@
-use mut = "collections"
-use "collections/persistent"
+use "collections"
 use "regex"
 use "json"
-use "debug"
 
-// TODO: Add nesting support
 class MustacheScope
-  let data: mut.List[JsonType]
+  let data: List[JsonType val]
 
-  new create(data': JsonType) =>
-    data = mut.List[JsonType].unit(data')
+  new create(data': JsonType val) =>
+    data = List[JsonType val].unit(data')
 
-  fun ref apply(key: String): JsonType =>
-    find(key, None)
-
-  fun ref find(key: String, default: JsonType): JsonType =>
-    Debug.out("find(" + key + "...)")
+  fun ref find(key: String, default: JsonType val = None): JsonType val =>
     let parts_it: Iterator[String] = key.split_by(".").values()
     let first: String =
       try
@@ -26,13 +19,13 @@ class MustacheScope
 
     for scope in data.values() do
       match scope
-      | let obj: JsonObject =>
+      | let obj: JsonObject val =>
         if obj.data.contains(first) then
           // first part of dotted name matched, search inside, or return None
           try
-            var inner: JsonType = obj.data(first)?
+            var inner: JsonType val = obj.data(first)?
             for part in parts_it do
-              inner = (inner as JsonObject).data(part)?
+              inner = (inner as JsonObject val).data(part)?
             end
             return inner
           else
@@ -68,7 +61,7 @@ class MustacheVariable is Renderable
     escape = escape'
 
   fun render(out: String iso, scope: MustacheScope): String iso^ =>
-    match scope(fetch)
+    match scope.find(fetch)
     | None => None
     | let n: (F64 | I64) =>
       out.append(n.string())
@@ -145,7 +138,7 @@ class MustacheSection is Renderable
     elts.push(elt)
 
   fun render(out: String iso, scope: MustacheScope): String iso^ =>
-    let maybe_scope = scope(fetch)
+    let maybe_scope: JsonType val = scope.find(fetch)
     scope.data.unshift(maybe_scope)
     let res = match maybe_scope
     | None =>
@@ -154,7 +147,7 @@ class MustacheSection is Renderable
       else
         consume out
       end
-    | let a: JsonArray =>
+    | let a: JsonArray val =>
       if a.data.size() == 0 then
         if invert then
           render_elements(consume out, scope)
@@ -193,7 +186,8 @@ class MustacheSection is Renderable
       end
     let printed_elts = elts.print_token(indent + "  ")
     recover
-      String()
+      String(indent.size() + name.size() + 1 + fetch.size() + 2 +
+        printed_elts.size() + indent.size() + 1)
       .>append(indent)
       .>append(name)
       .>push('(')
@@ -202,7 +196,7 @@ class MustacheSection is Renderable
       .>push('\n')
       .>append(printed_elts)
       .>append(indent)
-      .>append(")")
+      .>push(')')
     end
 
 class MustacheText is Renderable
@@ -222,25 +216,23 @@ class MustacheText is Renderable
       else
         _text
       end
+    let name = "MustacheText"
     recover
-      String()
+      String(indent.size() + name.size() + 2 + text.size() + 2)
       .>append(indent)
-      .>append("MustacheText(\"")
+      .>append(name)
+      .>append("(\"")
       .>append(text)
       .>append("\")")
     end
 
-class val MustacheMap
-// TODO: Make a list to parent context in MustacheMap
-// TODO: 'expected bindings' for a given template?
-
 class Mustache
   // TODO: Implement indentation sensitivity
-  var _template: String = ""
-  var _ast: MustacheBlock = MustacheBlock
+  let _template: String
+  let _ast: MustacheBlock
   var err: String = ""
 
-  fun ref template(t: String): None ? =>
+  new create(t: String) ? =>
     _template = t
     let parser =
       try
@@ -258,7 +250,7 @@ class Mustache
         error
       end
 
-  fun render(data: JsonType): String iso^ =>
+  fun render(data: JsonType val): String iso^ =>
     let scopes = MustacheScope(data)
     // TODO: Return a ReadSeq
     _ast.render(recover String(65535) end, scopes)

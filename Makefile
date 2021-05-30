@@ -1,5 +1,4 @@
-#config ?= release
-config ?= debug
+config ?= release
 
 PACKAGE := mustache
 GET_DEPENDENCIES_WITH := corral fetch
