@@ -43,8 +43,9 @@ class _Scanner
         try
           re(str, pos.usize())?
         else
+          let here = pos
           terminate()
-          return str.trim(pos.usize())
+          return str.trim(here.usize())
         end
       mat = m
       let s = str.trim(pos.usize(), m.start_pos())
