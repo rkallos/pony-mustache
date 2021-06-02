@@ -3,8 +3,8 @@ use "ponytest"
 use "files"
 use "json"
 
-use comments = "comments"
-use delimiters = "delimiters"
+use comments = "tests/comments"
+use delimiters = "tests/delimiters"
 
 actor Main is TestList
   new create(env: Env) => PonyTest(env, this)
