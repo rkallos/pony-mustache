@@ -64,7 +64,9 @@ class _Scanner
 
   fun match_peek(pat: String): Bool =>
     try
-      Regex(pat)? == str.trim(pos.usize())
+      let re = Regex(pat)?
+      let m = re.apply(str.trim(pos.usize()))?
+      m.start_pos() == 0
     else
       false
     end

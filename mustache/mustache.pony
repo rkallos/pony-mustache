@@ -147,6 +147,12 @@ class MustacheSection is Renderable
       else
         consume out
       end
+    | false =>
+      if invert then
+        render_elements(consume out, scope)
+      else
+        consume out
+      end
     | let a: JsonArray val =>
       if a.data.size() == 0 then
         if invert then
