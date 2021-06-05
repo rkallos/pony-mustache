@@ -38,9 +38,10 @@ class MustacheScope
       else
         if parts_it.has_next() then
           // miss; key is not empty
-          continue
+          return None
         else
-          return scope
+          // try next scope
+          continue
         end
       end
     end
