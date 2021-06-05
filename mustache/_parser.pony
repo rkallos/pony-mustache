@@ -197,13 +197,19 @@ class _Parser
     end
 
   fun ref parse_tag_delimiter_change(contents: String) ? =>
-    let sp = contents.clone().>rstrip().split_by(" ")
-    if sp.size() != 2 then
+    let split = recover ref contents.clone().>strip().split_by(" ") end
+    let parts = Array[String](2)
+    for part in split.values() do
+      if part != "" then
+        parts.push(part)
+      end
+    end
+    if parts.size() != 2 then
       err = "Invalid {{= tag: cannot split tag content into open and close delimiters"
       error
     end
     try
-      set_tag_regexes(sp(0)?, sp(1)?)?
+      set_tag_regexes(parts(0)?, parts(1)?)?
     else
       err = "Invalid {{= tag: \"" + contents + "\", unable to set tag regexes"
       error
