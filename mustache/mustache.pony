@@ -9,6 +9,15 @@ class MustacheScope
     data = List[JsonType val].unit(data')
 
   fun ref find(key: String, default: JsonType val = None): JsonType val =>
+    match key
+    | "." =>
+      try
+        return data(0)?
+      else
+        return None
+      end
+    end
+
     let parts_it: Iterator[String] = key.split_by(".").values()
     let first: String =
       try
