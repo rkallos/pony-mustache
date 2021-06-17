@@ -2,11 +2,9 @@ use "regex"
 
 class _Parser
   var otag_pat: String = "([ \t]*)?{{"
-  var otag_bol_pat: String = "(^[ \t]*)?{{"
   var ctag_pat: String = "}}"
 
   var otag_regex: Regex
-  var otag_bol_regex: Regex
   var ctag_regex: Regex
 
   let allowed_in_tags: Regex
@@ -25,7 +23,6 @@ class _Parser
     scanner = _Scanner(str)
 
     otag_regex = Regex(otag_pat)?
-    otag_bol_regex = Regex(otag_bol_pat)?
     ctag_regex = Regex(ctag_pat)?
 
     allowed_in_tags = Regex("(\\w|[?!\\/.-])*")?
@@ -45,7 +42,7 @@ class _Parser
   // Reads until a tag-open. If there is preceding whitespace
   // before the tag-open, it will match that as well.
   fun ref scan_text() =>
-    var text = scanner.scan_until(otag_bol_pat)
+    var text = scanner.scan_until(otag_pat)
 
     if text.size() > 0 then
       elts.push(MustacheText(text))
@@ -54,7 +51,7 @@ class _Parser
   fun ref scan_tags()? =>
     // find otag, possibly setting aside preceding whitespace
     let at_line_start = scanner.is_beginning_of_line()
-      // pre_match_position is useful for the end-section tag
+    // pre_match_position is useful for the end-section tag
     var pre_match_position = scanner.pos
 
     // consume otag
@@ -129,17 +126,12 @@ class _Parser
     let new_otag_pat: String = "([ \t]*)?" + ot
     let new_otag_regex = Regex(new_otag_pat)?
 
-    let new_otag_bol_pat: String = "(^[ \t]*)?" + ot
-    let new_otag_bol_regex = Regex(new_otag_bol_pat)?
-
     let new_ctag_regex = Regex(ct)?
 
     otag_pat = new_otag_pat
-    otag_bol_pat = new_otag_bol_pat
     ctag_pat = ct
 
     otag_regex = new_otag_regex
-    otag_bol_regex = new_otag_regex
     ctag_regex = new_ctag_regex
 
   fun ref parse_tag(kind: String, contents: String,
