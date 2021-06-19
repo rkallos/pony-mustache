@@ -2,7 +2,7 @@ use "collections"
 use "regex"
 use "json"
 
-class MustacheScope
+class Scope
   let data: List[JsonType val]
 
   new create(data': JsonType val) =>
@@ -63,12 +63,12 @@ interface Renderable
   fun print_token(indent: String = ""): String
 
 class Renderer
-  let _scopes: MustacheScope
+  let _scopes: Scope
   // TODO: Use ByteSeq
   var _out: String iso = recover String(65535) end
 
   new iso create(data: JsonType val) =>
-    _scopes = MustacheScope(data)
+    _scopes = Scope(data)
 
   fun ref find(key: String): JsonType val => _scopes.find(key)
   fun ref shift()? => _scopes.data.shift()?
@@ -77,7 +77,7 @@ class Renderer
   fun ref push_utf32(c: U32) => _out.push_utf32(c)
   fun ref string(): String iso^ => _out = recover String end
 
-class MustacheVariable is Renderable
+class Variable is Renderable
   let fetch: String
   let escape: Bool
 
@@ -113,9 +113,9 @@ class MustacheVariable is Renderable
   fun print_token(indent: String = ""): String =>
     let name =
       if escape then
-        "MustacheEscapedVariable"
+        "EscapedVariable"
       else
-        "MustacheVariable"
+        "Variable"
       end
     recover
       String()
@@ -126,7 +126,7 @@ class MustacheVariable is Renderable
       .>push(')')
     end
 
-class MustacheBlock is Renderable
+class Block is Renderable
   let elts: Array[Renderable] = Array[Renderable]
 
   fun ref push(elt: Renderable) => elts.push(elt)
@@ -141,7 +141,7 @@ class MustacheBlock is Renderable
   fun print_token(indent: String = ""): String =>
     let out = recover String end
     out.append(indent)
-    out.append("MustacheBlock(\n")
+    out.append("Block(\n")
     for elt in elts.values() do
       out.append(elt.print_token(indent + "  "))
       out.push('\n')
@@ -150,12 +150,12 @@ class MustacheBlock is Renderable
     out.append(")\n")
     consume out
 
-class MustacheSection is Renderable
+class Section is Renderable
   let fetch: String
   let invert: Bool
-  let elts: MustacheBlock
+  let elts: Block
 
-  new create(fetch': String, elts': MustacheBlock, invert': Bool = false) =>
+  new create(fetch': String, elts': Block, invert': Bool = false) =>
     fetch = fetch'
     elts = elts'
     invert = invert'
@@ -213,9 +213,9 @@ class MustacheSection is Renderable
   fun print_token(indent: String = ""): String =>
     let name =
       if invert then
-        "MustacheInvertedSection"
+        "InvertedSection"
       else
-        "MustacheSection"
+        "Section"
       end
     let printed_elts = elts.print_token(indent + "  ")
     recover
@@ -232,7 +232,7 @@ class MustacheSection is Renderable
       .>push(')')
     end
 
-class MustacheText is Renderable
+class Text is Renderable
   let _text: String
 
   new create(text: String) =>
@@ -249,7 +249,7 @@ class MustacheText is Renderable
       else
         _text
       end
-    let name = "MustacheText"
+    let name = "Text"
     recover
       String(indent.size() + name.size() + 2 + text.size() + 2)
       .>append(indent)
@@ -262,7 +262,7 @@ class MustacheText is Renderable
 class Mustache
   // TODO: Implement indentation sensitivity
   let _template: String
-  let _ast: MustacheBlock
+  let _ast: Block
   var err: String = ""
 
   new create(t: String) ? =>

@@ -12,9 +12,9 @@ class _Parser
   let skip_whitespace: Regex
   let valid_tag_types: Regex
 
-  var elts: MustacheBlock ref^ = MustacheBlock
-  let sections: Array[(String, ISize, MustacheBlock)] =
-    Array[(String, ISize, MustacheBlock)]
+  var elts: Block ref^ = Block
+  let sections: Array[(String, ISize, Block)] =
+    Array[(String, ISize, Block)]
 
   let scanner: _Scanner
   var err: String = ""
@@ -30,7 +30,7 @@ class _Parser
     skip_whitespace = Regex("[#^/<>=!]")?
     valid_tag_types = Regex("[#^/<>=!&{]")?
 
-  fun ref apply(): MustacheBlock ? =>
+  fun ref apply(): Block ? =>
     repeat
       scan_tags()?
       scan_text()
@@ -45,7 +45,7 @@ class _Parser
     var text = scanner.scan_until(otag_pat)
 
     if text.size() > 0 then
-      elts.push(MustacheText(text))
+      elts.push(Text(text))
     end
 
   fun ref scan_tags()? =>
@@ -61,7 +61,7 @@ class _Parser
 
     var padding = scanner(1)
     if not at_line_start and (padding.size() > 0) then
-      elts.push(MustacheText(padding))
+      elts.push(Text(padding))
       pre_match_position = pre_match_position + padding.size().isize()
       padding = ""
     end
@@ -101,7 +101,7 @@ class _Parser
         scanner.skip("\r?\n")
       else
         if padding.size() > 0 then
-          elts.push(MustacheText(padding))
+          elts.push(Text(padding))
         end
       end
     end
@@ -153,21 +153,21 @@ class _Parser
     end
 
   fun ref parse_variable(fetch: String, escape: Bool = false) =>
-    elts.push(MustacheVariable(fetch, escape))
+    elts.push(Variable(fetch, escape))
 
   // TODO: parse_section_open()?
   // Needs to change where new tags get pushed to: elts won't cut it anymore
-  // Perhaps a container class, like MustacheSection, which can hold many
+  // Perhaps a container class, like Section, which can hold many
   // nested tags or sections.
   fun ref parse_section_open(contents: String, fetch: String) =>
-    let new_elts: MustacheBlock = MustacheBlock
-    elts.push(MustacheSection(fetch, new_elts))
+    let new_elts: Block = Block
+    elts.push(Section(fetch, new_elts))
     sections.push((contents, scanner.pos, elts))
     elts = new_elts
 
   fun ref parse_inverted_section_open(contents: String, fetch: String) =>
-    let new_elts: MustacheBlock = MustacheBlock
-    elts.push(MustacheSection(fetch, new_elts, true))
+    let new_elts: Block = Block
+    elts.push(Section(fetch, new_elts, true))
     sections.push((contents, scanner.pos, elts))
     elts = new_elts
 
