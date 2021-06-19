@@ -59,8 +59,23 @@ class MustacheScope
     None
 
 interface Renderable
-  fun render(out: String iso, scopes: MustacheScope): String iso^
+  fun render(r: Renderer iso): Renderer iso^
   fun print_token(indent: String = ""): String
+
+class Renderer
+  let _scopes: MustacheScope
+  // TODO: Use ByteSeq
+  var _out: String iso = recover String(65535) end
+
+  new iso create(data: JsonType val) =>
+    _scopes = MustacheScope(data)
+
+  fun ref find(key: String): JsonType val => _scopes.find(key)
+  fun ref shift()? => _scopes.data.shift()?
+  fun ref unshift(v: JsonType val) => _scopes.data.unshift(v)
+  fun ref append(s: String) => _out.append(s)
+  fun ref push_utf32(c: U32) => _out.push_utf32(c)
+  fun ref string(): String iso^ => _out = recover String end
 
 class MustacheVariable is Renderable
   let fetch: String
@@ -70,30 +85,30 @@ class MustacheVariable is Renderable
     fetch = fetch'
     escape = escape'
 
-  fun render(out: String iso, scope: MustacheScope): String iso^ =>
-    match scope.find(fetch)
+  fun render(r: Renderer iso): Renderer iso^ =>
+    match r.find(fetch)
     | None => None
     | let n: (F64 | I64) =>
-      out.append(n.string())
+      r.append(n.string())
     | let n: I64 =>
-      out.append(n.string())
+      r.append(n.string())
     | let s: String =>
       if escape then
         for c in s.runes() do
           match c
-          | '&' => out.append("&amp;")
-          | 0x22 => out.append("&quot;")
-          | '<' => out.append("&lt;")
-          | '>' => out.append("&gt;")
+          | '&' => r.append("&amp;")
+          | 0x22 => r.append("&quot;")
+          | '<' => r.append("&lt;")
+          | '>' => r.append("&gt;")
           else
-            out.push_utf32(c)
+            r.push_utf32(c)
           end
         end
       else
-        out.append(s)
+        r.append(s)
       end
     end
-    consume out
+    consume r
 
   fun print_token(indent: String = ""): String =>
     let name =
@@ -116,11 +131,12 @@ class MustacheBlock is Renderable
 
   fun ref push(elt: Renderable) => elts.push(elt)
 
-  fun render(out: String iso, scope: MustacheScope): String iso^ =>
+  fun render(r: Renderer iso): Renderer iso^ =>
+    var r' = consume r
     for elt in elts.values() do
-      out.append(elt.render(recover String end, scope))
+      r' = elt.render(consume r')
     end
-    consume out
+    consume r'
 
   fun print_token(indent: String = ""): String =>
     let out = recover String end
@@ -147,51 +163,52 @@ class MustacheSection is Renderable
   fun ref push(elt: Renderable) =>
     elts.push(elt)
 
-  fun render(out: String iso, scope: MustacheScope): String iso^ =>
-    let maybe_scope: JsonType val = scope.find(fetch)
-    scope.data.unshift(maybe_scope)
+  fun render(r: Renderer iso): Renderer iso^ =>
+    let maybe_scope: JsonType val = r.find(fetch)
+    r.unshift(maybe_scope)
     let res = match maybe_scope
     | None =>
       if invert then
-        render_elements(consume out, scope)
+        render_elements(consume r)
       else
-        consume out
+        consume r
       end
     | false =>
       if invert then
-        render_elements(consume out, scope)
+        render_elements(consume r)
       else
-        consume out
+        consume r
       end
     | let a: JsonArray val =>
       if a.data.size() == 0 then
         if invert then
-          render_elements(consume out, scope)
+          render_elements(consume r)
         else
-          consume out
+          consume r
         end
       else
         if invert then
-          consume out
+          consume r
         else
-          render_elements(consume out, scope)
+          render_elements(consume r)
         end
       end
     else
       if invert then
-        consume out
+        consume r
       else
-        render_elements(consume out, scope)
+        render_elements(consume r)
       end
     end
-    try scope.data.shift()? end
+    try res.shift()? end
     consume res
 
-  fun render_elements(out: String iso, scope: MustacheScope): String iso^ =>
+  fun render_elements(r: Renderer iso): Renderer iso^ =>
+    var r' = consume r
     for elt in elts.elts.values() do
-      out.append(elt.render(recover String end, scope))
+      r' = elt.render(consume r')
     end
-    consume out
+    consume r'
 
   fun print_token(indent: String = ""): String =>
     let name =
@@ -221,9 +238,9 @@ class MustacheText is Renderable
   new create(text: String) =>
     _text = text
 
-  fun render(out: String iso, scope: MustacheScope): String iso^ =>
-    out.append(_text)
-    consume out
+  fun render(r: Renderer iso): Renderer iso^ =>
+    r.append(_text)
+    consume r
 
   fun print_token(indent: String = ""): String =>
     let text =
@@ -267,9 +284,8 @@ class Mustache
       end
 
   fun render(data: JsonType val): String iso^ =>
-    let scopes = MustacheScope(data)
-    // TODO: Return a ReadSeq
-    _ast.render(recover String(65535) end, scopes)
+    // TODO: Return a ByteSeq
+    _ast.render(Renderer(data)).string()
 
   fun print_tokens(): String =>
     _ast.print_token()
