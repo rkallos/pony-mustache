@@ -26,8 +26,14 @@ class iso " + testClass(.name) + " is UnitTest
     let data = (recover val
       JsonDoc.>parse(\"\"\"" + (.data | tojson) + "\"\"\")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse(\"\"\"" + (.partials | tojson) + "\"\"\")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))"))
+    h.assert_eq[String](expected, m.render(data, consume partials))"))

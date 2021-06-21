@@ -29,11 +29,17 @@ class iso _TestBasicBehavior is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"text":"from partial"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestFailedLookup is UnitTest
   fun name(): String => "partials/Failed Lookup"
@@ -44,11 +50,17 @@ class iso _TestFailedLookup is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestContext is UnitTest
   fun name(): String => "partials/Context"
@@ -59,11 +71,17 @@ class iso _TestContext is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{"text":"content"}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":"*{{text}}*"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestRecursion is UnitTest
   fun name(): String => "partials/Recursion"
@@ -74,11 +92,17 @@ class iso _TestRecursion is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{"content":"X","nodes":[{"content":"Y","nodes":[]}]}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"node":"{{content}}<{{#nodes}}{{>node}}{{/nodes}}>"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestSurroundingWhitespace is UnitTest
   fun name(): String => "partials/Surrounding Whitespace"
@@ -89,11 +113,17 @@ class iso _TestSurroundingWhitespace is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":"\t|\t"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestInlineIndentation is UnitTest
   fun name(): String => "partials/Inline Indentation"
@@ -104,11 +134,17 @@ class iso _TestInlineIndentation is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{"data":"|"}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":">\n>"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestStandaloneLineEndings is UnitTest
   fun name(): String => "partials/Standalone Line Endings"
@@ -119,11 +155,17 @@ class iso _TestStandaloneLineEndings is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":">"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestStandaloneWithoutPreviousLine is UnitTest
   fun name(): String => "partials/Standalone Without Previous Line"
@@ -134,11 +176,17 @@ class iso _TestStandaloneWithoutPreviousLine is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":">\n>"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestStandaloneWithoutNewline is UnitTest
   fun name(): String => "partials/Standalone Without Newline"
@@ -149,11 +197,17 @@ class iso _TestStandaloneWithoutNewline is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":">\n>"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestStandaloneIndentation is UnitTest
   fun name(): String => "partials/Standalone Indentation"
@@ -164,11 +218,17 @@ class iso _TestStandaloneIndentation is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{"content":"<\n->"}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":"|\n{{{content}}}\n|\n"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))
 
 class iso _TestPaddingWhitespace is UnitTest
   fun name(): String => "partials/Padding Whitespace"
@@ -179,8 +239,14 @@ class iso _TestPaddingWhitespace is UnitTest
     let data = (recover val
       JsonDoc.>parse("""{"boolean":true}""")?
     end).data
+    let partials_data = (recover val
+      JsonDoc.>parse("""{"partial":"[]"}""")?
+    end).data
+    let partials: Partials iso = recover
+      PartialsFromJson(partials_data)
+    end
 
     let m = Mustache(template)?
     h.log(m.print_tokens())
 
-    h.assert_eq[String](expected, m.render(data))
+    h.assert_eq[String](expected, m.render(data, consume partials))

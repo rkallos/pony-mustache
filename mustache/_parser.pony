@@ -51,8 +51,6 @@ class _Parser
   fun ref scan_tags()? =>
     // find otag, possibly setting aside preceding whitespace
     let at_line_start = scanner.is_beginning_of_line()
-    // pre_match_position is useful for the end-section tag
-    var pre_match_position = scanner.pos
 
     // consume otag
     if scanner.scan(otag_regex).size() == 0 then
@@ -62,7 +60,6 @@ class _Parser
     var padding = scanner(1)
     if not at_line_start and (padding.size() > 0) then
       elts.push(Text(padding))
-      pre_match_position = pre_match_position + padding.size().isize()
       padding = ""
     end
 
@@ -77,7 +74,6 @@ class _Parser
       err = "Illegal content in tag"
       error
     end
-    let fetch = contents
 
     // consume whitespace
     scanner.scan(whitespace)
@@ -107,7 +103,7 @@ class _Parser
     end
 
     // parse tag
-    parse_tag(kind, contents, fetch, padding, pre_match_position)?
+    parse_tag(kind, contents, padding)?
 
   fun ref tag_contents(kind: String): String =>
     let pos = scanner.pos
@@ -134,46 +130,39 @@ class _Parser
     otag_regex = new_otag_regex
     ctag_regex = new_ctag_regex
 
-  fun ref parse_tag(kind: String, contents: String,
-    fetch: String, padding: String, pre_match_position: ISize
-  ) ? =>
-    // missing partials: <>
+  fun ref parse_tag(kind: String, contents: String, padding: String) ? =>
     match kind
     | "!" => None
-    |  "" => parse_variable(fetch, true)
-    | "&" => parse_variable(fetch, false)
-    | "{" => parse_variable(fetch, false)
-    | "#" => parse_section_open(contents, fetch)
-    | "/" => parse_section_close(contents, padding, pre_match_position)?
-    | "^" => parse_inverted_section_open(contents, fetch)
+    |  "" => parse_variable(contents, true)
+    | "&" => parse_variable(contents, false)
+    | "{" => parse_variable(contents, false)
+    | "#" => parse_section_open(contents)
+    | "/" => parse_section_close(contents)?
+    | "^" => parse_inverted_section_open(contents)
     | "=" => parse_tag_delimiter_change(contents)?
+    | ">" => parse_partial_open(contents, padding)
+    | "<" => parse_partial_open(contents, padding)
     else
       err = "Unknown tag type: " + kind
       error
     end
 
-  fun ref parse_variable(fetch: String, escape: Bool = false) =>
-    elts.push(Variable(fetch, escape))
+  fun ref parse_variable(contents: String, escape: Bool = false) =>
+    elts.push(Variable(contents, escape))
 
-  // TODO: parse_section_open()?
-  // Needs to change where new tags get pushed to: elts won't cut it anymore
-  // Perhaps a container class, like Section, which can hold many
-  // nested tags or sections.
-  fun ref parse_section_open(contents: String, fetch: String) =>
+  fun ref parse_section_open(contents: String) =>
     let new_elts: Block = Block
-    elts.push(Section(fetch, new_elts))
+    elts.push(Section(contents, new_elts))
     sections.push((contents, scanner.pos, elts))
     elts = new_elts
 
-  fun ref parse_inverted_section_open(contents: String, fetch: String) =>
+  fun ref parse_inverted_section_open(contents: String) =>
     let new_elts: Block = Block
-    elts.push(Section(fetch, new_elts, true))
+    elts.push(Section(contents, new_elts, true))
     sections.push((contents, scanner.pos, elts))
     elts = new_elts
 
-  fun ref parse_section_close(contents: String, padding: String,
-    pre_match_position: ISize
-  ) ? =>
+  fun ref parse_section_close(contents: String) ? =>
     (let section, let pos, let old_elts) =
       try
         sections.pop()?
@@ -181,7 +170,6 @@ class _Parser
         err = "Closing unopened section: " + contents
         error
       end
-    //let raw = str.trim(pos, pre_match_position)
     elts = old_elts
     if section != contents then
       err = "Unclosed section: " + section
@@ -206,6 +194,9 @@ class _Parser
       err = "Invalid {{= tag: \"" + contents + "\", unable to set tag regexes"
       error
     end
+
+  fun ref parse_partial_open(contents: String, padding: String) =>
+    elts.push(Partial(contents, padding))
 
   fun escape_pcre_metachars(s: String): String =>
     // most of the time, s will be small, and relatively few

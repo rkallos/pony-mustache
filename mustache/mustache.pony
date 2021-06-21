@@ -59,23 +59,59 @@ class Scope
     None
 
 interface Renderable
-  fun render(r: Renderer iso): Renderer iso^
+  fun render(r: Renderer): Renderer
   fun print_token(indent: String = ""): String
 
 class Renderer
   let _scopes: Scope
+  let _partials: Partials val
   // TODO: Use ByteSeq
   var _out: String iso = recover String(65535) end
+  var padding: String = ""
 
-  new iso create(data: JsonType val) =>
+  new create(data: JsonType val, partials: Partials iso) =>
     _scopes = Scope(data)
+    _partials = consume partials
 
   fun ref find(key: String): JsonType val => _scopes.find(key)
   fun ref shift()? => _scopes.data.shift()?
   fun ref unshift(v: JsonType val) => _scopes.data.unshift(v)
-  fun ref append(s: String) => _out.append(s)
+  fun ref append_without_padding(s: String) => _out.append(s)
+  fun ref append(s: String) =>
+    if padding.size() == 0 then
+      _out.append(s)
+      return
+    end
+
+    var i: USize = 0
+    try
+      while i <= s.size() do
+        let nl = s.find("\n", i.isize())?.usize() + 1
+        _out.append(s.trim(i, nl))
+        _out.append(padding)
+        i = nl
+      end
+    else
+      _out.append(s.trim(i.usize()))
+    end
   fun ref push_utf32(c: U32) => _out.push_utf32(c)
   fun ref string(): String iso^ => _out = recover String end
+  fun ref render_partial(name: String): Renderer =>
+    try
+      _partials.find_partial(name)?.render_with(this)
+    else
+      this
+    end
+  fun ref set_padding(new_padding: String): String =>
+    padding = new_padding
+  fun ref backtrack_to_newline() =>
+    var i = _out.size()-1
+    try
+      while _out(i)? == 0x20 do
+        i = i-1
+      end
+    end
+    _out.trim_in_place(0, i+1)
 
 class Variable is Renderable
   let fetch: String
@@ -85,13 +121,13 @@ class Variable is Renderable
     fetch = fetch'
     escape = escape'
 
-  fun render(r: Renderer iso): Renderer iso^ =>
+  fun render(r: Renderer): Renderer =>
     match r.find(fetch)
     | None => None
     | let n: (F64 | I64) =>
-      r.append(n.string())
+      r.append_without_padding(n.string())
     | let n: I64 =>
-      r.append(n.string())
+      r.append_without_padding(n.string())
     | let s: String =>
       if escape then
         for c in s.runes() do
@@ -105,7 +141,7 @@ class Variable is Renderable
           end
         end
       else
-        r.append(s)
+        r.append_without_padding(s)
       end
     end
     consume r
@@ -131,7 +167,7 @@ class Block is Renderable
 
   fun ref push(elt: Renderable) => elts.push(elt)
 
-  fun render(r: Renderer iso): Renderer iso^ =>
+  fun render(r: Renderer): Renderer =>
     var r' = consume r
     for elt in elts.values() do
       r' = elt.render(consume r')
@@ -163,7 +199,7 @@ class Section is Renderable
   fun ref push(elt: Renderable) =>
     elts.push(elt)
 
-  fun render(r: Renderer iso): Renderer iso^ =>
+  fun render(r: Renderer): Renderer =>
     let maybe_scope: JsonType val = r.find(fetch)
     r.unshift(maybe_scope)
     let res = match maybe_scope
@@ -190,7 +226,13 @@ class Section is Renderable
         if invert then
           consume r
         else
-          render_elements(consume r)
+          var r2 = consume r
+          for scope in a.data.values() do
+            r2.unshift(scope)
+            r2 = render_elements(consume r2)
+            try r2.shift()? end
+          end
+          consume r2
         end
       end
     else
@@ -203,7 +245,7 @@ class Section is Renderable
     try res.shift()? end
     consume res
 
-  fun render_elements(r: Renderer iso): Renderer iso^ =>
+  fun render_elements(r: Renderer): Renderer =>
     var r' = consume r
     for elt in elts.elts.values() do
       r' = elt.render(consume r')
@@ -238,7 +280,7 @@ class Text is Renderable
   new create(text: String) =>
     _text = text
 
-  fun render(r: Renderer iso): Renderer iso^ =>
+  fun render(r: Renderer): Renderer =>
     r.append(_text)
     consume r
 
@@ -259,11 +301,35 @@ class Text is Renderable
       .>append("\")")
     end
 
+class Partial
+  let fetch: String
+  let padding: String
+
+  new create(fetch': String, padding': String) =>
+    fetch = fetch'
+    padding = padding'
+
+  fun render(r: Renderer): Renderer =>
+    let old_padding = r.set_padding(padding)
+    r.append(padding)
+    r.render_partial(fetch)
+    r.backtrack_to_newline()
+    r.>set_padding(old_padding)
+
+  fun print_token(indent: String = ""): String =>
+    recover
+      String()
+      .>append(indent)
+      .>append("Partial")
+      .>push('(')
+      .>append(fetch)
+      .>push(')')
+    end
+
 class Mustache
-  // TODO: Implement indentation sensitivity
+  // TODO: Improve error reporting
   let _template: String
   let _ast: Block
-  var err: String = ""
 
   new create(t: String) ? =>
     _template = t
@@ -271,7 +337,7 @@ class Mustache
       try
         _Parser(_template)?
       else
-        err = "error constructing parser"
+        //err = "error constructing parser"
         error
       end
 
@@ -279,13 +345,16 @@ class Mustache
       try
         parser()?
       else
-        err = parser.err
+        //err = parser.err
         error
       end
 
-  fun render(data: JsonType val): String iso^ =>
+  fun render(data: JsonType val, partials: Partials iso = PartialsEmpty): String iso^ =>
     // TODO: Return a ByteSeq
-    _ast.render(Renderer(data)).string()
+    render_with(recover Renderer(data, consume partials) end).string()
+
+  fun render_with(r: Renderer): Renderer =>
+    _ast.render(consume r)
 
   fun print_tokens(): String =>
     _ast.print_token()
